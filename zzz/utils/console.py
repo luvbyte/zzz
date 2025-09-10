@@ -9,6 +9,7 @@ from rich.panel import Panel
 from rich.align import Align
 from rich.console import Console
 from rich.columns import Columns
+from rich.table import Table
 
 from typing import Literal
 
@@ -111,6 +112,31 @@ class AdvConsole(Console):
       self.print(Panel(cpanel, title=title, expand=expand))
     else:
       self.print(cpanel)
+  
+  def print_table(
+    self, 
+    columns, 
+    rows, 
+    title=None, 
+    header_style="bold cyan",
+    border_style="blue",
+    col_style="green"
+  ):
+    table = Table(
+      title=f"[bold magenta]{title}[/bold magenta]" if title else None,
+      header_style=header_style,
+      border_style=border_style
+    )
+
+    # Add columns
+    for col in columns:
+      table.add_column(col, style=col_style)
+
+    # Add rows
+    for row in rows:
+      table.add_row(*[str(item) for item in row])
+  
+    self.print(table)
 
 
   # True - completed, False - canceled

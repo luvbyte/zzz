@@ -7,7 +7,9 @@ from zzz.core.models import ZzzConfigModel, ZzzCliModel
 
 ZZZ_PATH = ensure_dir(Path.home() / ".zzz")
 SCRIPTS_PATH = ensure_dir(ZZZ_PATH / "scripts")
+ZZZ_DATA_PATH = ensure_dir(ZZZ_PATH / "data")
 ZZZ_CONFIG_PATH = ZZZ_PATH / "config.json"
+
 
 class ZzzConfig:
   def __init__(self) -> None:
