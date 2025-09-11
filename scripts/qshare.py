@@ -1,4 +1,3 @@
-#! precompile=False
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 from contextlib import asynccontextmanager
@@ -6,9 +5,8 @@ from pathlib import Path
 import mimetypes
 import uvicorn
 
+from zzz import ZScript, Arg, run_script
 
-from zzz.script import ZScript, Arg
-from zzz.runner import run_script
 
 zzz = ZScript()
 

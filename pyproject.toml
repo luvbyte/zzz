@@ -7,18 +7,10 @@ name = "zzz"
 version = "0.0.1"
 description = "ZZZ lazy script runner"
 authors = [{name="luvbyte", email="lovemelong@protonmail.com"}]
-license = {text = "Apache-2.0"}
+license = {text = "MIT"}
 readme = "README.md"
 requires-python = ">=3.8"
-dependencies = [
-    "rich",
-    "click",
-    "requests",
-    "pydantic",
-]
+dependencies = ["cmd2", "rich", "pydantic"]
 
-[project.scripts]
-zzz = "zzz.cli.commands:main"
-
-[tool.setuptools.packages.find]
-include = ["zzz*"]
+[tool.setuptools]
+packages = ["zzz"]

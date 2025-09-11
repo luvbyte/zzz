@@ -7,11 +7,12 @@ import select
 from rich.text import Text
 from rich.panel import Panel
 from rich.align import Align
+from rich.table import Table
 from rich.console import Console
 from rich.columns import Columns
-from rich.table import Table
 
 from typing import Literal
+
 
 class AdvConsole(Console):
   def __init__(self) -> None:
@@ -64,7 +65,6 @@ class AdvConsole(Console):
         expand=expand
       )
     )
-
 
   # print text with align
   def print_text(self, text, markup: bool = True, align: Literal['left', 'right', 'center'] = "left"):
@@ -138,7 +138,6 @@ class AdvConsole(Console):
   
     self.print(table)
 
-
   # True - completed, False - canceled
   def wait_basic(self, seconds: float = 5, message="(Ctrl + C to stop)") -> bool:
     """Waits with a countdown, allows interruption with Ctrl+C."""
@@ -156,12 +155,6 @@ class AdvConsole(Console):
       sys.stdout.flush()
 
   def wait(self, timeout: float = 5.0, message: str = "Time remaining") -> bool:
-    #def ret(value):
-      #sys.stdout.write("\r\033[K")
-      #self.hide_cursor(False)  # Show cursor
-      #sys.stdout.flush()
-      #return value
-    
     try:
       self.hide_cursor()  # Hide
       start_time = time.time()

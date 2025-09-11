@@ -1,15 +1,18 @@
-from datetime import datetime
-from cmd2 import Cmd
 import sys
-
-from rich.table import Table
-from rich.text import Text
 import types
 
-from .script import ZScript, ScriptCommand
+from cmd2 import Cmd
+from datetime import datetime
 
-from zzz.utils.process import sh
+from rich.text import Text
+from rich.table import Table
+
+from .script import ZScript
+from .command import ScriptCommand
+
 from zzz.core import __version__
+from zzz.modules.process import sh
+
 
 BANNER = r"""
 [blue]███████╗███████╗███████╗[/]
@@ -20,6 +23,7 @@ BANNER = r"""
 ╚══════╝╚══════╝╚══════╝
 """
 
+
 class ZUtils:
   def __init__(self):
     self.default_help_text = self.help_table()
@@ -28,7 +32,8 @@ class ZUtils:
     table = Table(
       title="[bold magenta]Available Commands[/bold magenta]",
       header_style="bold cyan",
-      border_style="blue"
+      border_style="blue",
+      expand=True
     )
     # Create table
     table.add_column("Command", style="green")
@@ -46,6 +51,8 @@ class ZUtils:
     table.add_row("set", "Set configuration options")
     table.add_row("shell", "Run shell commands")
     table.add_row("shortcuts", "List available keyboard shortcuts")
+    table.add_row("options", "Display ZOptions")
+    table.add_row("zset", "Set ZOption")
     for name in rows:
       table.add_row(*name)
 
@@ -53,10 +60,10 @@ class ZUtils:
 
 # cmd2
 class ZScriptRunner(Cmd):
-  def __init__(self, script: ZScript, clear: bool = True):
+  def __init__(self, script: ZScript, clear: bool = False):
     super().__init__()
     self.script = script
-    
+
     if clear:
       self.scr.clear()
 
@@ -78,7 +85,10 @@ class ZScriptRunner(Cmd):
     for name, command in self.commands.items():
       # Build methods directly
       def do_func(self, line, cmd=command):
-        cmd.run(line)
+        try:
+          cmd.run(line)
+        except Exception as e:
+          self.exception(e.args[0])
 
       def complete_func(self, text, line, begidx, endidx, cmd=command):
         return cmd.complete(self, text, line, begidx, endidx)
@@ -120,6 +130,80 @@ class ZScriptRunner(Cmd):
 
   def do_exit(self, line):
     return True
+  
+  #--- setting option
+  def do_options(self, line):
+    options = self.script.options._options
+    if len(options) <= 0:
+      return self.scr.print_center("\nScript has no options\n")
+
+    table = Table(title="Script Options", expand=True)
+    
+    # Define columns
+    table.add_column("Name", style="cyan", no_wrap=True)
+    table.add_column("Value", style="green")
+    table.add_column("Required", style="magenta")
+    table.add_column("Type", style="yellow")
+    table.add_column("Choices", style="blue")
+
+    for name, opt in options.items():
+      # value might raise if required but missing
+      try:
+        val = opt.value
+      except ValueError as e:
+        val = f"[red]{e}[/red]"  # show error in red
+      
+      table.add_row(
+        name,
+        str(val),
+        "Yes" if opt.require else "No",
+        opt._type.__name__,
+        ", ".join(map(str, opt.choices)) or "-"
+      )
+    self.scr.print(table)
+
+  def help_zset(self):
+    self.scr.print("[red]Usage[/red]: zset <name> <value>\n\nSET ZOption\n")
+
+  def complete_zset(self, text, line, begidx, endidx):
+    tokens = line.split()
+
+    # Suggest option names when typing the option name
+    if len(tokens) <= 1 or (begidx <= len(tokens[0]) + 1):
+      return [name for name in self.script.options._options if name.startswith(text)]
+
+    opt_name = tokens[1]
+
+    # If typing the value
+    if opt_name in self.script.options._options:
+      opt = self.script.options._options[opt_name]
+
+      # If the option has choices, show choices matching text
+      if opt.choices:
+        return [str(c) for c in opt.choices if str(c).startswith(text)]
+
+      # Otherwise, use cmd2 built-in path completer
+      return self.path_complete(text, line, begidx, endidx)
+
+    return []
+
+  def do_zset(self, line):
+    if not line:
+      self.scr.print("[red]Usage[/red]: zset <name> <value>\n")
+
+    elif len(line.arg_list) < 2:
+      self.scr.print("[red]Missing[/red]: <value>\n")
+    else:
+      try:
+        # set
+        name = line.arg_list[0]
+        value = " ".join(line.arg_list[1:])
+        
+        self.script.options.set(name, value)
+        self.scr.print(f"[red]Updated[/red]: {name}={value}\n")
+      except Exception as e:
+        self.exception(e.args[0])
+  # ---
 
   def complete_help(self, text, line, begidx, endidx):
     # Collect all commands (remove 'do_' prefix)
@@ -154,6 +238,9 @@ class ZScriptRunner(Cmd):
     if event:
       return event.emit(line)
     self.scr.print(f"[blue]zzz[/blue]: Unknown command: [red]{line.command}[/red]")
+  
+  def exception(self, text):
+    self.scr.print(f"[red]Error:[/red] zzz: [blue]{text}[/blue]")
 
 # ------ Run types
 def run_script_it(script: ZScript):

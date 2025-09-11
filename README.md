@@ -1,46 +1,40 @@
-zzz 💤  
-A lightweight `.zzz` script runner
+# zzz 💤  
+A lightweight framework for building interactive Python scripts
 
-`zzz` makes it simple to run `.zzz` scripts without worrying about missing dependencies.  
-If a required package isn’t installed, `zzz` will fetch it automatically at runtime — so you can focus on writing and running code.  
+`zzz` is a Python package built on top of [`cmd2`](https://cmd2.readthedocs.io) that makes it easy to build interactive, command-driven Python programs.  
+It gives you a simple API for defining commands, handling user input, and extending functionality — perfect for creating REPL-like tools, admin shells, or prototypes.
 
 ![zzz screenshot](docs/images/ss.jpg)
+
 ---
 
 ## ✨ Features
-- Run `.zzz` scripts directly  
-- Auto-install missing Python packages on the fly  
-- Minimal setup, no boilerplate required  
-- Perfect for quick experiments, prototypes, or sharing scripts  
+
+- Simple API to create interactive command-line applications  
+- Built on `cmd2` for history, tab completion, transcripts, and more  
+- Minimal setup — just subclass and add commands  
+- Great for prototypes, admin utilities, or sharing interactive tools  
 
 ---
 
 ## 📦 Installation
+
+```bash
+pip install zzz
+```
+
+(or clone and install locally:)
 ```bash
 git clone https://github.com/luvbyte/zzz.git
 cd zzz
-chmod +x install.sh
-./install.sh
+pip install .
 ```
 ---
+## ⚡ Why zzz?
 
-🚀 Usage
+Save time — skip boilerplate when building interactive shells
 
-### zzz script.zzz
----
+Enjoy rich features from cmd2 without the setup
 
-⚡ Why zzz?
+Create professional-feeling CLI tools quickly
 
-Share scripts without telling others to "pip install this and that"
-
-Reduce friction when testing out small ideas
-
-Keep your environment clean — only install what’s actually needed
-
----
-
-📜 License
-
-This project is licensed under the Apache License 2.0.
-
----

@@ -1,8 +1,13 @@
-from zzz.script import ZScript
-from zzz.runner import run_script_cli
+from zzz import ZScript, run_script_cli
 
-zzz = ZScript(intro=False)
+
+script = ZScript(intro=False)
+
+
+@script.on("zzz:default")
+def default(line):
+  script.scr.print(f"Hello {line.raw}")
 
 
 if __name__ == "__main__":
-  run_script_cli(zzz)
+  run_script_cli(script)
