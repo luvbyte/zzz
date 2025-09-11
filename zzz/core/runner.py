@@ -150,9 +150,9 @@ class ZScriptRunner(Cmd):
       # value might raise if required but missing
       try:
         val = opt.value
-      except ValueError as e:
-        val = f"[red]{e}[/red]"  # show error in red
-      
+      except Exception:
+        val = "[red] - [/red]"  # show error in red
+
       table.add_row(
         name,
         str(val),
