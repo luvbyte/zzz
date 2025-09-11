@@ -9,9 +9,9 @@ from pathlib import Path
 from zzz.modules.process import sh
 from zzz.utils.path import ensure_dir
 from zzz.modules.console import AdvConsole
+from zzz.core.models.script import ScriptConfigModel
 
 from .task import ScriptTasks
-from .models import ScriptConfigModel
 from .command import ScriptCommands, Arg
 
 
@@ -126,7 +126,7 @@ class ScriptOptions:
 class ScriptArgs:
   def __init__(self):
     self._raw_args = sys.argv[1:]
-  
+
   def get(self, index, default=None):
     try:
       return self._raw_args[index]
@@ -142,25 +142,29 @@ class ZScript:
   prompt = "| "
   banner = None
   def __init__(self, intro=True, config={}):
-    self.args = ScriptArgs()
     self.scr = AdvConsole()
     self.options = ScriptOptions()
     self.config = ScriptConfig(ScriptConfigModel(**config))
-    
+
     self.events = ScriptEvents()
     self.commands = ScriptCommands()
     self.tasks = ScriptTasks()
 
+    # script meta
     self.name = os.path.basename(sys.argv[0])
-    self.intro = intro
-    self.version = None
     self.author = None
-    
+    self.version = None
+    # To show banner + header
+    self.intro = intro 
+    self.desc = None
+
     self.sh = sh
+    # finally parsing args
+    self.args = ScriptArgs()
 
   def arg(self, *args, **kwargs):
     return Arg(*args, **kwargs)
-  
+
   def add_option(self, *args, **kwargs):
     return self.options.add(*args, **kwargs)
 
