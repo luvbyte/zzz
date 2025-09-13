@@ -1,7 +1,8 @@
 import sys
 import types
+import argparse
 
-from cmd2 import Cmd
+from cmd2 import Cmd, Cmd2ArgumentParser, with_argparser
 from datetime import datetime
 
 from rich.text import Text
@@ -9,66 +10,79 @@ from rich.table import Table
 
 from zzz.core.context import ZScript, ScriptCommand
 
-from zzz.core import __version__
 from zzz.modules.process import sh
 
-from .base import BANNER, ZUtils
+from .base import BANNER, RunnerUtils
 
+
+
+def make_script_parser():
+  # script argparser
+  script_argparse = Cmd2ArgumentParser()
+  script_argparse.add_argument(
+    'subcommand',
+    choices=['commands', 'commands-full', 'options', 'options-required'],
+    help='Choose subcommand'
+  )
+  return script_argparse
 
 # cmd2 - interactive
 class ZScriptRunner(Cmd):
-  def __init__(self, script: ZScript, clear: bool = False):
+  def __init__(self, script: ZScript):
+    # bypassing cmd2 default argparse :)
+    original_argv = sys.argv.copy()
+    sys.argv = [sys.argv[0]]
+    # init of Cmd
     super().__init__()
+    # restoring argv
+    sys.argv = original_argv
+
     self.script = script
 
-    if clear:
-      self.scr.clear()
-
-    if self.script.intro:
-      # Script banner or default (zzz)
-      if self.script.banner is not False:
-        self.scr.print_center(self.script.banner or BANNER)
-        # script headers
-        self._print_zzz_header()
-      self._print_script_header()
-
-    self._utils = ZUtils()
-    self.commands = {name: command for name, command in self.script.commands._registers.items() if isinstance(command, ScriptCommand)}
+    self.utils = RunnerUtils(self.script)
     self._register_commands()
     
+    # emit init event
     self.script.events.emit("init")
 
-  def _register_commands(self):
-    for name, command in self.commands.items():
+  # arg parser
+  def __register_commands(self):
+    for name, command in self.script.commands.items():
       # Build methods directly
-      def do_func(self, line, cmd=command):
+      @with_argparser(command.argparser)
+      def do_func(self, args, cmd=command):
         try:
-          cmd.run(line)
+          cmd.run(args)
         except Exception as e:
           self.exception(e.args[0])
-
-      def complete_func(self, text, line, begidx, endidx, cmd=command):
-        return cmd.complete(self, text, line, begidx, endidx)
-
-      def help_func(self, cmd=command):
-        self.poutput(cmd.help_text(self))
-
+      
+      do_func.argparser.prog = name
+  
       setattr(self, f"do_{name}", types.MethodType(do_func, self))
-      setattr(self, f"complete_{name}", types.MethodType(complete_func, self))
-      setattr(self, f"help_{name}", types.MethodType(help_func, self))
+  
+  def _register_commands(self):
+    for name, command in self.script.commands.items():
+      desired_prog = command.argparser.prog or name
 
-  def _print_zzz_header(self):
-    self.scr.print_center(f"zzz: [blue]luvbyte[/blue] | version: [red]{__version__}[/red]")
+      @with_argparser(command.argparser)
+      def do_func(inner_self, args, cmd=command):
+        try:
+          cmd.run(args)
+        except Exception as e:
+          inner_self.exception(e.args[0])
 
-  def _print_script_header(self):
-    # Script header
-    version = f" [red]v{self.script.version}[/red]" if self.script.version else ""
-    author = self.script.author if self.script.author else "Someone [red]ᥫ᭡[/red]"
-    self.scr.print_panel(f"✨ [blue]{self.script.name.capitalize()}[/blue]{version} by [green]{author}[/green]", padding=False)
+      # cmd2's decorator changes both the argparser.prog and the function name
+      # Fix them back:
+      do_func.argparser.prog = desired_prog    # fixes Usage: text
+      do_func.__name__ = f"do_{name}"  # fixes command name in help
+      do_func.__qualname__ = f"do_{name}"  # also for introspection
 
+      # finally bind the method to your instance
+      setattr(self, f"do_{name}", types.MethodType(do_func, self))
+  
   @property
   def scr(self):
-    return self.script.scr
+    return self.utils.scr
 
   @property
   def prompt(self):
@@ -87,38 +101,20 @@ class ZScriptRunner(Cmd):
 
   def do_exit(self, line):
     return True
-  
+
   #--- setting option
-  def do_options(self, line):
-    options = self.script.options._options
-    if len(options) <= 0:
-      return self.scr.print_center("\nScript has no options\n")
+  @with_argparser(make_script_parser())
+  def do_script(self, args):
+    if args.subcommand == "commands":
+      self.utils._print_commands(False)
+    elif args.subcommand == "commands-full":
+      self.utils.print_commands_cmd2()
+    elif args.subcommand == "options":
+      self.utils.print_options(False)
+    elif args.subcommand == "options-required":
+      self.utils.print_options(True)
 
-    table = Table(title="Script Options", expand=True)
-    
-    # Define columns
-    table.add_column("Name", style="cyan", no_wrap=True)
-    table.add_column("Value", style="green")
-    table.add_column("Required", style="magenta")
-    table.add_column("Type", style="yellow")
-    table.add_column("Choices", style="blue")
-
-    for name, opt in options.items():
-      # value might raise if required but missing
-      try:
-        val = opt.value
-      except Exception:
-        val = "[red] - [/red]"  # show error in red
-
-      table.add_row(
-        name,
-        str(val),
-        "Yes" if opt.require else "No",
-        opt._type.__name__,
-        ", ".join(map(str, opt.choices)) or "-"
-      )
-    self.scr.print(table)
-
+  # ----------
   def help_zset(self):
     self.scr.print("[red]Usage[/red]: zset <name> <value>\n\nSET ZOption\n")
 
@@ -174,24 +170,24 @@ class ZScriptRunner(Cmd):
   def do_help(self, line):
     if line:
       return super().do_help(line)
-    # commands with no short helps
-    no_short_commands = [name for name, command in self.commands.items() if command.short is None]
-    short_commands = [(f"[red]{name}[/red]", command.short) for name, command in self.commands.items() if command.short]
+    
+    self.scr.print_panel("[red]Usage[/red]: command [ARGS] [-h]", padding=False)
+    self.utils.print_commands_cmd2()
 
-    if len(short_commands) > 0:
-      self.scr.print(self._utils.help_table(short_commands))
-    else:
-      self.scr.print(self._utils.default_help_text)
-
-    if len(no_short_commands) > 0:
-      self.scr.print_panel(f"[blue]{' '.join(no_short_commands)}[/blue]", padding=False)
-  
   def default(self, line):
     event = self.script.events.get("default")
     if event:
       return event.emit(line)
     self.scr.print(f"[blue]zzz[/blue]: Unknown command: [red]{line.command}[/red]")
   
-  def exception(self, text):
-    self.scr.print(f"[red]Error:[/red] zzz: [blue]{text}[/blue]")
+  def run(self, clear: bool = False, intro: bool = True):
+    if clear:
+      self.scr.clear()
 
+    if intro:
+      self.utils.print_intro()
+    
+    self.cmdloop()
+
+  def exception(self, text):
+    self.utils.exception(text)

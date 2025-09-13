@@ -12,13 +12,16 @@ class ScriptCommand:
   def __init__(self, name, func, short=None, desc=None):
     self.name = name
     self.func = func # callable
+    # Short description
     self.short = short
     
     self.argparser = Cmd2ArgumentParser(prog=self.name)
+    # parse args from function
     self._parse_func_args()
-    
+
+    # if desc or get from func desc
     self.desc = desc or self.func.__doc__
-  
+
   def has(self, name):
     return name in self._registers
   
@@ -28,6 +31,7 @@ class ScriptCommand:
   def help_text(self, line):
     return self.desc or self.argparser.format_help()
 
+  # Building argparse
   def _parse_func_args(self):
     sig = inspect.signature(self.func)
   
@@ -57,74 +61,62 @@ class ScriptCommand:
       else:
         # optional argument
         self._add_argument(f"--{param_name}", type=arg_type, default=default)
-
   def _add_argument(self, *args, **kwargs):
     self.argparser.add_argument(*args, **kwargs)
 
   def emit_func(self, *args, **kwargs):
     return self.func(*args, **kwargs) if callable(self.func) else self.func
+  
+  # args will be cmd2 Namespace()
+  def run(self, args):
+    import inspect
 
-  def run(self, argv):
-    try:
-      parsed = self.argparser.parse_args(argv.arg_list)
-    except SystemExit:
-      return
+    # Convert argparse Namespace to dict
+    if not isinstance(args, dict):
+      arg_dict = vars(args)
+    else:
+      arg_dict = args
 
-    data = vars(parsed).copy()
     sig = inspect.signature(self.func)
-
-    pos_args = []    # real positional arguments in order
-    var_args = []    # for *args
-    kwargs = {}      # for keywords
-    has_var_kw = False
+    positional = []
+    keywords = {}
+    varargs = []
+    extra_kwargs = {}
 
     for name, param in sig.parameters.items():
       if param.kind == inspect.Parameter.VAR_POSITIONAL:
-        items = data.pop(name, [])
-        if not isinstance(items, (list, tuple)):
-          items = [items]
-        var_args.extend(items)
+        # collect *args
+        varargs = arg_dict.get(name, [])
       elif param.kind == inspect.Parameter.VAR_KEYWORD:
-        has_var_kw = True
+        # collect remaining kwargs not already matched
+        for k, v in arg_dict.items():
+          if k not in sig.parameters:
+            extra_kwargs[k] = v
       else:
-        # this is a normal positional-or-keyword param
-        if name in data:
-          pos_args.append(data.pop(name))
-        else:
-          # leave default handling — optional param with default
-          # will be satisfied automatically
-          pass
-    if has_var_kw:
-      kwargs.update(data)
+        # normal positional or keyword parameters
+        if name in arg_dict:
+          if param.default is inspect._empty:
+            # no default → positional
+            positional.append(arg_dict[name])
+          else:
+            # has default → keyword
+            keywords[name] = arg_dict[name]
 
-    return self.func(*pos_args, *var_args, **kwargs)
+    # Call the function
+    return self.func(*positional, *varargs, **keywords, **extra_kwargs)
 
-  def complete(self, shell, text, line, begidx, endidx):
-    completions = []
-
-    # Complete option flags
-    for action in self.argparser._actions:
-      if action.option_strings:
-        for opt in action.option_strings:
-          if opt.startswith(text):
-            completions.append(opt)
-
-    # Complete positional arguments
-    positional_args = [a for a in self.argparser._actions if not a.option_strings]
-    if positional_args:
-      # First positional argument
-      arg = positional_args[0]
-      if arg.choices:
-        completions += [c for c in arg.choices if c.startswith(text)]
-      else:
-        # default to path completion if no choices
-        completions += shell.path_complete(text, line, begidx, endidx)
-
-    return completions
+  def run_cli(self, args):
+    return self.run(self.argparser.parse_args(args))
 
 class ScriptCommands:
   def __init__(self):
     self._registers = {}
+  
+  def items(self):
+    return self._registers.items()
+  
+  def get(self, name, default=None):
+    return self._registers.get(name, default)
 
   def add(self, name, func, *args, **kwargs):
     self._registers[name] = ScriptCommand(name, func, *args, **kwargs)

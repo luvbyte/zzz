@@ -130,17 +130,17 @@ async def download_file(path: str):
     media_type=mime_type or 'application/octet-stream'  # Fallback
   )
 
-@zzz.on("serve")
+@zzz.on("serve", short="Start server")
 def serve(
   path: str = "./",
   host: str = "localhost",
   port: int = 8080,
   verbose: Arg("-v", "--verbose", action="store_true", help="Enable verbose") = False,
 ):
-  global HOST, PORT, ROOT
+  global HOST, PORT, SHARED_DIR
   HOST = host
   PORT = port
-  ROOT = Path(path).resolve()
+  SHARED_DIR = Path(path).resolve()
   
   uvicorn.run(app, host=HOST, port=PORT, log_level="info" if verbose else "critical")
 

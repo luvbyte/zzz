@@ -52,6 +52,9 @@ class ScriptConfig:
 
 class ScriptOption:
   def __init__(self, name, value=None, require=False, _type=str, choices=()):
+    if not require and value is None:
+      raise Exception(f"Option '{name}' Must set 'value' if require is False")
+
     self.name = name
     self._value = value          # store actual value internally
     self._type = _type
@@ -141,7 +144,19 @@ class ScriptArgs:
 class ZScript:
   prompt = "| "
   banner = None
-  def __init__(self, intro=True, config={}):
+  def __init__(self, name=None, version=None, author=None, desc=None, config={}):
+    # script paths
+    self.script_full_path = Path(sys.argv[0])
+    self.script_path = self.script_full_path.parent
+    
+    # with ext
+    self.script_name = os.path.basename(sys.argv[0])
+    # script meta
+    self.name = (name or Path(sys.argv[0]).with_suffix("").name).capitalize()
+    self.desc = desc
+    self.author = author
+    self.version = version
+
     self.scr = AdvConsole()
     self.options = ScriptOptions()
     self.config = ScriptConfig(ScriptConfigModel(**config))
@@ -150,17 +165,13 @@ class ZScript:
     self.commands = ScriptCommands()
     self.tasks = ScriptTasks()
 
-    # script meta
-    self.name = os.path.basename(sys.argv[0])
-    self.author = None
-    self.version = None
-    # To show banner + header
-    self.intro = intro 
-    self.desc = None
-
     self.sh = sh
     # finally parsing args
     self.args = ScriptArgs()
+
+  @property
+  def cwd(self):
+    return os.getcwd()
 
   def arg(self, *args, **kwargs):
     return Arg(*args, **kwargs)
